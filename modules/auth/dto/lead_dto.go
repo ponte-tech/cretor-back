@@ -12,6 +12,7 @@ type CreateLeadRequest struct {
 	Email          string `json:"email" validate:"required,email"`
 	Prazo          string `json:"prazo" validate:"required"`
 	FormaPagamento string `json:"forma_pagamento" validate:"required"`
+	Website        string `json:"website"`  // honeypot - must be empty
 }
 
 type UpdateLeadRequest struct {

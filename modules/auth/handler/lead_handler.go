@@ -14,12 +14,13 @@ import (
 )
 
 type LeadHandler struct {
-	repo   domain.LeadRepository
-	logger *zap.Logger
+	repo         domain.LeadRepository
+	pipelineRepo domain.PipelineRepository
+	logger       *zap.Logger
 }
 
-func NewLeadHandler(repo domain.LeadRepository, logger *zap.Logger) *LeadHandler {
-	return &LeadHandler{repo: repo, logger: logger}
+func NewLeadHandler(repo domain.LeadRepository, pipelineRepo domain.PipelineRepository, logger *zap.Logger) *LeadHandler {
+	return &LeadHandler{repo: repo, pipelineRepo: pipelineRepo, logger: logger}
 }
 
 // POST /leads
@@ -34,6 +35,13 @@ func (h *LeadHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Honeypot: if bot filled the hidden field, silently accept but don't save
+	if req.Website != "" {
+		h.logger.Warn("honeypot triggered", zap.String("ip", r.Header.Get("X-Forwarded-For")))
+		response.JSON(w, dto.LeadResponse{ID: "ok"}, http.StatusCreated)
+		return
+	}
+
 	tenantID := middleware.GetTenantID(r.Context())
 	lead := &domain.Lead{
 		TenantID: tenantID, Nome: req.Nome, Whatsapp: req.Whatsapp,
@@ -45,6 +53,24 @@ func (h *LeadHandler) Create(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to create lead", zap.Error(err))
 		response.Error(w, "internal server error", http.StatusInternalServerError)
 		return
+	}
+
+	// Auto-create pipeline entry
+	negocio := &domain.Negocio{
+		TenantID:                tenantID,
+		LeadID:                  lead.ID,
+		LeadNome:                lead.Nome,
+		LeadEmail:               lead.Email,
+		LeadTelefone:            lead.Whatsapp,
+		LeadPrazo:               lead.Prazo,
+		LeadFormaPagamento:      lead.FormaPagamento,
+		Etapa:                   "primeiro_contato",
+		Prioridade:              "media",
+		ProbabilidadeFechamento: 20,
+		Tags:                    []string{lead.Origem},
+	}
+	if err := h.pipelineRepo.Create(r.Context(), negocio); err != nil {
+		h.logger.Error("failed to auto-create pipeline entry", zap.Error(err))
 	}
 
 	h.logger.Info("lead created", zap.String("email", lead.Email))

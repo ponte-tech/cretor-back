@@ -75,7 +75,7 @@ func main() {
 	jwtProvider := auth.NewJWTProvider(cfg.JWTSecret, cfg.JWTExpirationHrs, cfg.RefreshTokenHrs)
 	authService := service.NewAuthService(usuarioRepo, jwtProvider, logger)
 	authHandler := handler.NewAuthHandler(authService, logger)
-	leadHandler := handler.NewLeadHandler(leadRepo, logger)
+	leadHandler := handler.NewLeadHandler(leadRepo, pipelineRepo, logger)
 	pipelineHandler := handler.NewPipelineHandler(pipelineRepo, logger)
 	observacaoHandler := handler.NewObservacaoHandler(observacaoRepo, logger)
 
@@ -108,6 +108,9 @@ func buildRouter(authHandler *handler.AuthHandler, leadHandler *handler.LeadHand
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
+	// Rate limiter for public endpoints (5 requests/minute per IP)
+	publicLimiter := middleware.NewRateLimiter(5, time.Minute)
+
 	// Public auth routes
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireTenant)
@@ -115,6 +118,12 @@ func buildRouter(authHandler *handler.AuthHandler, leadHandler *handler.LeadHand
 		r.Post("/auth/signup", authHandler.Signup)
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/refresh", authHandler.RefreshToken)
+	})
+
+	// Public lead route (rate limited)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireTenant)
+		r.Use(publicLimiter.Handler)
 
 		r.Post("/leads", leadHandler.Create)
 	})
