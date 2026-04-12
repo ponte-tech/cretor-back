@@ -78,9 +78,10 @@ func main() {
 	leadHandler := handler.NewLeadHandler(leadRepo, pipelineRepo, logger)
 	pipelineHandler := handler.NewPipelineHandler(pipelineRepo, logger)
 	observacaoHandler := handler.NewObservacaoHandler(observacaoRepo, logger)
+	emailHandler := handler.NewEmailHandler(logger)
 
 	// Router
-	r := buildRouter(authHandler, leadHandler, pipelineHandler, observacaoHandler, jwtProvider, logger)
+	r := buildRouter(authHandler, leadHandler, pipelineHandler, observacaoHandler, emailHandler, jwtProvider, logger)
 
 	// Lambda or Local
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
@@ -93,7 +94,7 @@ func main() {
 	}
 }
 
-func buildRouter(authHandler *handler.AuthHandler, leadHandler *handler.LeadHandler, pipelineHandler *handler.PipelineHandler, observacaoHandler *handler.ObservacaoHandler, jwtProvider *auth.JWTProvider, logger *zap.Logger) *chi.Mux {
+func buildRouter(authHandler *handler.AuthHandler, leadHandler *handler.LeadHandler, pipelineHandler *handler.PipelineHandler, observacaoHandler *handler.ObservacaoHandler, emailHandler *handler.EmailHandler, jwtProvider *auth.JWTProvider, logger *zap.Logger) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
@@ -146,6 +147,8 @@ func buildRouter(authHandler *handler.AuthHandler, leadHandler *handler.LeadHand
 
 		r.Get("/pipeline/{id}/observacoes", observacaoHandler.List)
 		r.Post("/pipeline/{id}/observacoes", observacaoHandler.Create)
+
+		r.Post("/email/send", emailHandler.Send)
 	})
 
 	// Protected auth routes
