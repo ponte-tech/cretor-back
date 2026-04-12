@@ -38,4 +38,5 @@ type PipelineRepository interface {
 	Update(ctx context.Context, negocio *Negocio) error
 	UpdateEtapa(ctx context.Context, id, etapa string, probabilidade int) error
 	Delete(ctx context.Context, id string) error
+	DeleteByLeadID(ctx context.Context, leadID string) error
 }

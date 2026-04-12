@@ -195,6 +195,19 @@ func (r *PipelineRepo) Delete(ctx context.Context, id string) error {
 	return database.MapError(err, "pipeline")
 }
 
+func (r *PipelineRepo) DeleteByLeadID(ctx context.Context, leadID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	leadOID, err := bson.ObjectIDFromHex(leadID)
+	if err != nil {
+		return domain.ErrInvalidID
+	}
+
+	_, err = r.col.DeleteMany(ctx, bson.M{"lead_id": leadOID})
+	return database.MapError(err, "pipeline")
+}
+
 func EnsurePipelineIndexes(ctx context.Context, db *mongo.Database) error {
 	col := db.Collection("pipeline")
 	_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{

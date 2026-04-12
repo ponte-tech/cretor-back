@@ -164,6 +164,11 @@ func (h *LeadHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Also delete associated pipeline entries
+	if err := h.pipelineRepo.DeleteByLeadID(r.Context(), id); err != nil {
+		h.logger.Error("failed to delete pipeline entries for lead", zap.Error(err))
+	}
+
 	h.logger.Info("lead deleted", zap.String("id", id))
 	response.Message(w, "lead deleted", http.StatusOK)
 }
