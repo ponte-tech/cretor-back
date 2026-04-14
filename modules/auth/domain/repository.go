@@ -21,11 +21,23 @@ type ConstrutoraRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+type EmpreendimentoFilters struct {
+	Cidades      []string `json:"cidades"`
+	UFs          []string `json:"ufs"`
+	Bairros      []string `json:"bairros"`
+	StatusObra   []string `json:"status_obra"`
+	Construtoras []string `json:"construtoras"`
+	Dormitorios  []int    `json:"dormitorios"`
+	Suites       []int    `json:"suites"`
+	Vagas        []int    `json:"vagas"`
+}
+
 type EmpreendimentoRepository interface {
 	Create(ctx context.Context, e *Empreendimento) error
 	FindByID(ctx context.Context, id string) (*Empreendimento, error)
 	List(ctx context.Context, tenantID string, filter EmpreendimentoFilter) ([]Empreendimento, int64, error)
 	Search(ctx context.Context, tenantID, query string, page, pageSize int) ([]Empreendimento, int64, error)
+	GetDistinctFilters(ctx context.Context, tenantID string) (*EmpreendimentoFilters, error)
 	Update(ctx context.Context, e *Empreendimento) error
 	Delete(ctx context.Context, id string) error
 }

@@ -111,6 +111,11 @@ func (s *EmpreendimentoService) ListUnidades(ctx context.Context, tenantID strin
 	return result, nil
 }
 
+// GetFilters returns distinct values for all filterable fields.
+func (s *EmpreendimentoService) GetFilters(ctx context.Context, tenantID string) (*domain.EmpreendimentoFilters, error) {
+	return s.empreendimentoRepo.GetDistinctFilters(ctx, tenantID)
+}
+
 // ListConstrutoras returns construtoras for a tenant.
 func (s *EmpreendimentoService) ListConstrutoras(ctx context.Context, tenantID string, filter domain.ConstrutoraFilter) ([]dto.ConstrutoraResponse, error) {
 	construtoras, err := s.construtoraRepo.List(ctx, tenantID, filter)

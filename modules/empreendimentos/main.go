@@ -215,6 +215,18 @@ func (h *empreendimentoHandler) ListConstrutoras(w http.ResponseWriter, r *http.
 	response.JSON(w, construtoras, http.StatusOK)
 }
 
+func (h *empreendimentoHandler) Filters(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+
+	filters, err := h.svc.GetFilters(r.Context(), tenantID)
+	if err != nil {
+		h.logger.Error("failed to get filters", zap.Error(err))
+		response.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	response.JSON(w, filters, http.StatusOK)
+}
+
 // Ensure handler uses dto package (compile check)
 var _ = dto.ToEmpreendimentoResponse
 
@@ -238,6 +250,7 @@ func buildRouter(h *empreendimentoHandler, logger *zap.Logger) *chi.Mux {
 		r.Use(middleware.RequireTenant)
 
 		r.Get("/empreendimentos", h.List)
+		r.Get("/empreendimentos/filters", h.Filters)
 		r.Get("/empreendimentos/{id}", h.GetByID)
 		r.Get("/empreendimentos/{id}/unidades", h.ListUnidades)
 		r.Get("/construtoras", h.ListConstrutoras)

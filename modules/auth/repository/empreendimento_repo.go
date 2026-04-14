@@ -459,6 +459,54 @@ func (r *EmpreendimentoRepo) Search(ctx context.Context, tenantID, query string,
 	return emps, total, nil
 }
 
+func (r *EmpreendimentoRepo) GetDistinctFilters(ctx context.Context, tenantID string) (*domain.EmpreendimentoFilters, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	tenantOID, err := bson.ObjectIDFromHex(tenantID)
+	if err != nil {
+		return nil, domain.ErrInvalidID
+	}
+
+	f := bson.M{"tenant_id": tenantOID, "foto": bson.M{"$ne": ""}}
+	filters := &domain.EmpreendimentoFilters{}
+
+	distinctStrings := func(field string) []string {
+		var result []string
+		var vals []string
+		_ = r.col.Distinct(ctx, field, f).Decode(&vals)
+		for _, v := range vals {
+			if v != "" {
+				result = append(result, v)
+			}
+		}
+		return result
+	}
+
+	distinctInts := func(field string) []int {
+		var result []int
+		var vals []int32
+		_ = r.col.Distinct(ctx, field, f).Decode(&vals)
+		for _, v := range vals {
+			if v > 0 {
+				result = append(result, int(v))
+			}
+		}
+		return result
+	}
+
+	filters.Cidades = distinctStrings("endereco.cidade")
+	filters.UFs = distinctStrings("endereco.uf")
+	filters.Bairros = distinctStrings("endereco.bairro")
+	filters.StatusObra = distinctStrings("obra.status")
+	filters.Construtoras = distinctStrings("construtora_nome")
+	filters.Dormitorios = distinctInts("caracteristicas.dormitorios.max")
+	filters.Suites = distinctInts("caracteristicas.suites.max")
+	filters.Vagas = distinctInts("caracteristicas.vagas.max")
+
+	return filters, nil
+}
+
 func (r *EmpreendimentoRepo) Update(ctx context.Context, e *domain.Empreendimento) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
