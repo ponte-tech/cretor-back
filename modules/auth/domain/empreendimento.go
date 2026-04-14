@@ -53,9 +53,15 @@ type Caracteristicas struct {
 }
 
 type PontoInteresse struct {
-	Nome      string
-	Distancia string
-	Tempo     string
+	Nome            string
+	Categoria       string
+	Subcategoria    string
+	Endereco        string
+	DistanciaMetros int
+	TempoCarro      string
+	TempoPe         string
+	Latitude        float64
+	Longitude       float64
 }
 
 type Secao struct {
@@ -115,11 +121,18 @@ type BoundingBox struct {
 }
 
 type EmpreendimentoFilter struct {
-	ConstrutoraID *string
-	Cidade        *string
-	UF            *string
-	StatusObra    *string
-	Search        *string
-	Bounds        *BoundingBox
-	Pagination    Pagination
+	ConstrutoraID          *string
+	Cidade                 *string
+	UF                     *string
+	StatusObra             *string
+	Search                 *string
+	Bounds                 *BoundingBox
+	Dormitorios            []int
+	Suites                 []int
+	Vagas                  []int
+	MetragemMin            *float64
+	MetragemMax            *float64
+	DiferenciaisUnidade    []string
+	DiferenciaisCondominio []string
+	Pagination             Pagination
 }

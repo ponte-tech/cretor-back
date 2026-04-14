@@ -21,15 +21,24 @@ type ConstrutoraRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+type ConstrutoraOption struct {
+	Nome string `json:"nome"`
+	Logo string `json:"logo"`
+}
+
 type EmpreendimentoFilters struct {
-	Cidades      []string `json:"cidades"`
-	UFs          []string `json:"ufs"`
-	Bairros      []string `json:"bairros"`
-	StatusObra   []string `json:"status_obra"`
-	Construtoras []string `json:"construtoras"`
-	Dormitorios  []int    `json:"dormitorios"`
-	Suites       []int    `json:"suites"`
-	Vagas        []int    `json:"vagas"`
+	Cidades                []string            `json:"cidades"`
+	UFs                    []string            `json:"ufs"`
+	Bairros                []string            `json:"bairros"`
+	StatusObra             []string            `json:"status_obra"`
+	Construtoras           []ConstrutoraOption `json:"construtoras"`
+	Dormitorios            []int               `json:"dormitorios"`
+	Suites                 []int               `json:"suites"`
+	Vagas                  []int               `json:"vagas"`
+	MetragemMin            float64             `json:"metragem_min"`
+	MetragemMax            float64             `json:"metragem_max"`
+	DiferenciaisUnidade    []string            `json:"diferenciais_unidade"`
+	DiferenciaisCondominio []string            `json:"diferenciais_condominio"`
 }
 
 type EmpreendimentoRepository interface {

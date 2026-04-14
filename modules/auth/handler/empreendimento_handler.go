@@ -2,6 +2,8 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/ponte-tech/cretor-back/modules/auth/domain"
@@ -39,6 +41,51 @@ func (h *EmpreendimentoHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	if v := r.URL.Query().Get("construtora_id"); v != "" {
 		filter.ConstrutoraID = &v
+	}
+	if v := r.URL.Query().Get("dormitorios"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				filter.Dormitorios = append(filter.Dormitorios, n)
+			}
+		}
+	}
+	if v := r.URL.Query().Get("suites"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				filter.Suites = append(filter.Suites, n)
+			}
+		}
+	}
+	if v := r.URL.Query().Get("vagas"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				filter.Vagas = append(filter.Vagas, n)
+			}
+		}
+	}
+	if v := r.URL.Query().Get("metragem_min"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			filter.MetragemMin = &f
+		}
+	}
+	if v := r.URL.Query().Get("metragem_max"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			filter.MetragemMax = &f
+		}
+	}
+	if v := r.URL.Query().Get("diferenciais_unidade"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if t := strings.TrimSpace(s); t != "" {
+				filter.DiferenciaisUnidade = append(filter.DiferenciaisUnidade, t)
+			}
+		}
+	}
+	if v := r.URL.Query().Get("diferenciais_condominio"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if t := strings.TrimSpace(s); t != "" {
+				filter.DiferenciaisCondominio = append(filter.DiferenciaisCondominio, t)
+			}
+		}
 	}
 
 	cards, err := h.service.ListEmpreendimentos(r.Context(), tenantID, filter)

@@ -59,9 +59,15 @@ type CaracteristicasResponse struct {
 }
 
 type PontoInteresseResponse struct {
-	Nome      string `json:"nome"`
-	Distancia string `json:"distancia"`
-	Tempo     string `json:"tempo"`
+	Nome            string  `json:"nome"`
+	Categoria       string  `json:"categoria"`
+	Subcategoria    string  `json:"subcategoria"`
+	Endereco        string  `json:"endereco,omitempty"`
+	DistanciaMetros int     `json:"distancia_metros"`
+	TempoCarro      string  `json:"tempo_carro,omitempty"`
+	TempoPe         string  `json:"tempo_pe,omitempty"`
+	Latitude        float64 `json:"latitude,omitempty"`
+	Longitude       float64 `json:"longitude,omitempty"`
 }
 
 type SecaoResponse struct {
@@ -167,7 +173,12 @@ func ToConstrutoraResponse(c *domain.Construtora) ConstrutoraResponse {
 func ToEmpreendimentoResponse(e *domain.Empreendimento) EmpreendimentoResponse {
 	pontos := make([]PontoInteresseResponse, len(e.PontosInteresse))
 	for i, p := range e.PontosInteresse {
-		pontos[i] = PontoInteresseResponse{Nome: p.Nome, Distancia: p.Distancia, Tempo: p.Tempo}
+		pontos[i] = PontoInteresseResponse{
+			Nome: p.Nome, Categoria: p.Categoria, Subcategoria: p.Subcategoria,
+			Endereco: p.Endereco, DistanciaMetros: p.DistanciaMetros,
+			TempoCarro: p.TempoCarro, TempoPe: p.TempoPe,
+			Latitude: p.Latitude, Longitude: p.Longitude,
+		}
 	}
 	secoes := make([]SecaoResponse, len(e.Secoes))
 	for i, s := range e.Secoes {

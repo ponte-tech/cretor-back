@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/ponte-tech/cretor-back/modules/auth/domain"
@@ -62,9 +63,15 @@ type caracteristicasDoc struct {
 }
 
 type pontoInteresseDoc struct {
-	Nome      string `bson:"nome"`
-	Distancia string `bson:"distancia"`
-	Tempo     string `bson:"tempo"`
+	Nome            string  `bson:"nome"`
+	Categoria       string  `bson:"categoria"`
+	Subcategoria    string  `bson:"subcategoria"`
+	Endereco        string  `bson:"endereco,omitempty"`
+	DistanciaMetros int     `bson:"distancia_metros"`
+	TempoCarro      string  `bson:"tempo_carro,omitempty"`
+	TempoPe         string  `bson:"tempo_pe,omitempty"`
+	Latitude        float64 `bson:"latitude,omitempty"`
+	Longitude       float64 `bson:"longitude,omitempty"`
 }
 
 type secaoDoc struct {
@@ -114,7 +121,12 @@ type empreendimentoDocument struct {
 func (d *empreendimentoDocument) toDomain() domain.Empreendimento {
 	pontosInteresse := make([]domain.PontoInteresse, len(d.PontosInteresse))
 	for i, p := range d.PontosInteresse {
-		pontosInteresse[i] = domain.PontoInteresse{Nome: p.Nome, Distancia: p.Distancia, Tempo: p.Tempo}
+		pontosInteresse[i] = domain.PontoInteresse{
+			Nome: p.Nome, Categoria: p.Categoria, Subcategoria: p.Subcategoria,
+			Endereco: p.Endereco, DistanciaMetros: p.DistanciaMetros,
+			TempoCarro: p.TempoCarro, TempoPe: p.TempoPe,
+			Latitude: p.Latitude, Longitude: p.Longitude,
+		}
 	}
 	secoes := make([]domain.Secao, len(d.Secoes))
 	for i, s := range d.Secoes {
@@ -195,7 +207,12 @@ func (r *EmpreendimentoRepo) Create(ctx context.Context, e *domain.Empreendiment
 
 	pontosDoc := make([]pontoInteresseDoc, len(e.PontosInteresse))
 	for i, p := range e.PontosInteresse {
-		pontosDoc[i] = pontoInteresseDoc{Nome: p.Nome, Distancia: p.Distancia, Tempo: p.Tempo}
+		pontosDoc[i] = pontoInteresseDoc{
+			Nome: p.Nome, Categoria: p.Categoria, Subcategoria: p.Subcategoria,
+			Endereco: p.Endereco, DistanciaMetros: p.DistanciaMetros,
+			TempoCarro: p.TempoCarro, TempoPe: p.TempoPe,
+			Latitude: p.Latitude, Longitude: p.Longitude,
+		}
 	}
 	secoesDoc := make([]secaoDoc, len(e.Secoes))
 	for i, s := range e.Secoes {
@@ -303,7 +320,7 @@ func (r *EmpreendimentoRepo) List(ctx context.Context, tenantID string, filter d
 		return nil, 0, domain.ErrInvalidID
 	}
 
-	f := bson.M{"tenant_id": tenantOID, "foto": bson.M{"$ne": ""}}
+	f := bson.M{"tenant_id": tenantOID, "foto": bson.M{"$exists": true, "$nin": bson.A{"", nil}}}
 	if filter.ConstrutoraID != nil {
 		cOID, err := bson.ObjectIDFromHex(*filter.ConstrutoraID)
 		if err != nil {
@@ -321,11 +338,66 @@ func (r *EmpreendimentoRepo) List(ctx context.Context, tenantID string, filter d
 		f["obra.status"] = *filter.StatusObra
 	}
 	if filter.Search != nil && *filter.Search != "" {
-		f["nome"] = bson.M{"$regex": *filter.Search, "$options": "i"}
+		// Split on "," or " - " to handle "Meia Praia, Itapema" or "Itapema - SC"
+		raw := strings.TrimSpace(*filter.Search)
+		var parts []string
+		for _, sep := range []string{",", " - "} {
+			if strings.Contains(raw, sep) {
+				for _, p := range strings.Split(raw, sep) {
+					p = strings.TrimSpace(p)
+					if p != "" {
+						parts = append(parts, p)
+					}
+				}
+				break
+			}
+		}
+		if len(parts) == 0 {
+			parts = []string{raw}
+		}
+
+		// Each part must match at least one searchable field ($and of $or)
+		var andClauses bson.A
+		for _, part := range parts {
+			partRegex := bson.M{"$regex": part, "$options": "i"}
+			andClauses = append(andClauses, bson.M{"$or": bson.A{
+				bson.M{"nome": partRegex},
+				bson.M{"endereco.bairro": partRegex},
+				bson.M{"endereco.cidade": partRegex},
+				bson.M{"endereco.uf": partRegex},
+				bson.M{"endereco.logradouro": partRegex},
+			}})
+		}
+		if len(andClauses) == 1 {
+			f["$or"] = andClauses[0].(bson.M)["$or"]
+		} else {
+			f["$and"] = andClauses
+		}
 	}
 	if filter.Bounds != nil {
 		f["endereco.latitude"] = bson.M{"$gte": filter.Bounds.SwLat, "$lte": filter.Bounds.NeLat}
 		f["endereco.longitude"] = bson.M{"$gte": filter.Bounds.SwLng, "$lte": filter.Bounds.NeLng}
+	}
+	if len(filter.Dormitorios) > 0 {
+		f["caracteristicas.dormitorios.max"] = bson.M{"$in": filter.Dormitorios}
+	}
+	if len(filter.Suites) > 0 {
+		f["caracteristicas.suites.max"] = bson.M{"$in": filter.Suites}
+	}
+	if len(filter.Vagas) > 0 {
+		f["caracteristicas.vagas.max"] = bson.M{"$in": filter.Vagas}
+	}
+	if filter.MetragemMin != nil {
+		f["caracteristicas.metragem.max"] = bson.M{"$gte": *filter.MetragemMin}
+	}
+	if filter.MetragemMax != nil {
+		f["caracteristicas.metragem.min"] = bson.M{"$lte": *filter.MetragemMax}
+	}
+	if len(filter.DiferenciaisUnidade) > 0 {
+		f["diferenciais_unidade"] = bson.M{"$all": filter.DiferenciaisUnidade}
+	}
+	if len(filter.DiferenciaisCondominio) > 0 {
+		f["diferenciais_condominio"] = bson.M{"$all": filter.DiferenciaisCondominio}
 	}
 
 	page := filter.Pagination.Page
@@ -468,7 +540,7 @@ func (r *EmpreendimentoRepo) GetDistinctFilters(ctx context.Context, tenantID st
 		return nil, domain.ErrInvalidID
 	}
 
-	f := bson.M{"tenant_id": tenantOID, "foto": bson.M{"$ne": ""}}
+	f := bson.M{"tenant_id": tenantOID, "foto": bson.M{"$exists": true, "$nin": bson.A{"", nil}}}
 	filters := &domain.EmpreendimentoFilters{}
 
 	distinctStrings := func(field string) []string {
@@ -499,10 +571,71 @@ func (r *EmpreendimentoRepo) GetDistinctFilters(ctx context.Context, tenantID st
 	filters.UFs = distinctStrings("endereco.uf")
 	filters.Bairros = distinctStrings("endereco.bairro")
 	filters.StatusObra = distinctStrings("obra.status")
-	filters.Construtoras = distinctStrings("construtora_nome")
+	// Construtoras: aggregate unique construtora_id + name, then lookup logo
+	construtorasPipeline := bson.A{
+		bson.M{"$match": f},
+		bson.M{"$group": bson.M{
+			"_id":  "$construtora_id",
+			"nome": bson.M{"$first": "$construtora_nome"},
+		}},
+		bson.M{"$lookup": bson.M{
+			"from":         "construtoras",
+			"localField":   "_id",
+			"foreignField": "_id",
+			"as":           "c",
+		}},
+		bson.M{"$project": bson.M{
+			"nome": 1,
+			"logo": bson.M{"$arrayElemAt": bson.A{"$c.logo_s3_path", 0}},
+		}},
+		bson.M{"$sort": bson.M{"nome": 1}},
+	}
+	cCursor, cErr := r.col.Aggregate(ctx, construtorasPipeline)
+	if cErr == nil {
+		defer cCursor.Close(ctx)
+		var cResults []struct {
+			Nome string `bson:"nome"`
+			Logo string `bson:"logo"`
+		}
+		if err := cCursor.All(ctx, &cResults); err == nil {
+			for _, cr := range cResults {
+				if cr.Nome != "" {
+					filters.Construtoras = append(filters.Construtoras, domain.ConstrutoraOption{
+						Nome: cr.Nome,
+						Logo: cr.Logo,
+					})
+				}
+			}
+		}
+	}
+
 	filters.Dormitorios = distinctInts("caracteristicas.dormitorios.max")
 	filters.Suites = distinctInts("caracteristicas.suites.max")
 	filters.Vagas = distinctInts("caracteristicas.vagas.max")
+	filters.DiferenciaisUnidade = distinctStrings("diferenciais_unidade")
+	filters.DiferenciaisCondominio = distinctStrings("diferenciais_condominio")
+
+	// Metragem range: aggregate min/max across all documents
+	pipeline := bson.A{
+		bson.M{"$match": f},
+		bson.M{"$group": bson.M{
+			"_id":         nil,
+			"metragem_min": bson.M{"$min": "$caracteristicas.metragem.min"},
+			"metragem_max": bson.M{"$max": "$caracteristicas.metragem.max"},
+		}},
+	}
+	cursor, err := r.col.Aggregate(ctx, pipeline)
+	if err == nil {
+		defer cursor.Close(ctx)
+		var results []struct {
+			MetragemMin float64 `bson:"metragem_min"`
+			MetragemMax float64 `bson:"metragem_max"`
+		}
+		if err := cursor.All(ctx, &results); err == nil && len(results) > 0 {
+			filters.MetragemMin = results[0].MetragemMin
+			filters.MetragemMax = results[0].MetragemMax
+		}
+	}
 
 	return filters, nil
 }

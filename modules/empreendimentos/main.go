@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -103,20 +104,11 @@ func (h *empreendimentoHandler) List(w http.ResponseWriter, r *http.Request) {
 		pageSize = 100
 	}
 
-	// When search is provided, use text search for relevance-ranked results
-	if search := q.Get("search"); search != "" {
-		result, err := h.svc.SearchEmpreendimentos(r.Context(), tenantID, search, page, pageSize)
-		if err != nil {
-			h.logger.Error("failed to search empreendimentos", zap.Error(err))
-			response.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-		response.JSON(w, result, http.StatusOK)
-		return
-	}
-
 	filter := domain.EmpreendimentoFilter{
 		Pagination: domain.Pagination{Page: page, PageSize: pageSize},
+	}
+	if v := q.Get("search"); v != "" {
+		filter.Search = &v
 	}
 	if v := q.Get("cidade"); v != "" {
 		filter.Cidade = &v
@@ -129,6 +121,51 @@ func (h *empreendimentoHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	if v := q.Get("construtora_id"); v != "" {
 		filter.ConstrutoraID = &v
+	}
+	if v := q.Get("dormitorios"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				filter.Dormitorios = append(filter.Dormitorios, n)
+			}
+		}
+	}
+	if v := q.Get("suites"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				filter.Suites = append(filter.Suites, n)
+			}
+		}
+	}
+	if v := q.Get("vagas"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				filter.Vagas = append(filter.Vagas, n)
+			}
+		}
+	}
+	if v := q.Get("metragem_min"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			filter.MetragemMin = &f
+		}
+	}
+	if v := q.Get("metragem_max"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			filter.MetragemMax = &f
+		}
+	}
+	if v := q.Get("diferenciais_unidade"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if t := strings.TrimSpace(s); t != "" {
+				filter.DiferenciaisUnidade = append(filter.DiferenciaisUnidade, t)
+			}
+		}
+	}
+	if v := q.Get("diferenciais_condominio"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if t := strings.TrimSpace(s); t != "" {
+				filter.DiferenciaisCondominio = append(filter.DiferenciaisCondominio, t)
+			}
+		}
 	}
 
 	// Bounding box filter (map search)
@@ -143,7 +180,7 @@ func (h *empreendimentoHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Default: sem filtro nenhum e sem bounds, foca em Balneário Camboriú
-	hasFilter := q.Get("cidade") != "" || q.Get("uf") != "" || q.Get("status_obra") != "" || q.Get("construtora_id") != "" || filter.Bounds != nil
+	hasFilter := filter.Search != nil || q.Get("cidade") != "" || q.Get("uf") != "" || q.Get("status_obra") != "" || q.Get("construtora_id") != "" || filter.Bounds != nil || len(filter.Dormitorios) > 0 || len(filter.Suites) > 0 || len(filter.Vagas) > 0 || filter.MetragemMin != nil || filter.MetragemMax != nil || len(filter.DiferenciaisUnidade) > 0 || len(filter.DiferenciaisCondominio) > 0
 	if !hasFilter {
 		defaultCidade := "Camboriú"
 		filter.Cidade = &defaultCidade
