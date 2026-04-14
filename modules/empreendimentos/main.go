@@ -131,8 +131,19 @@ func (h *empreendimentoHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.ConstrutoraID = &v
 	}
 
-	// Default: sem filtro nenhum, foca em Balneário Camboriú
-	hasFilter := q.Get("cidade") != "" || q.Get("uf") != "" || q.Get("status_obra") != "" || q.Get("construtora_id") != ""
+	// Bounding box filter (map search)
+	if q.Get("sw_lat") != "" && q.Get("sw_lng") != "" && q.Get("ne_lat") != "" && q.Get("ne_lng") != "" {
+		swLat, _ := strconv.ParseFloat(q.Get("sw_lat"), 64)
+		swLng, _ := strconv.ParseFloat(q.Get("sw_lng"), 64)
+		neLat, _ := strconv.ParseFloat(q.Get("ne_lat"), 64)
+		neLng, _ := strconv.ParseFloat(q.Get("ne_lng"), 64)
+		if swLat != 0 || swLng != 0 || neLat != 0 || neLng != 0 {
+			filter.Bounds = &domain.BoundingBox{SwLat: swLat, SwLng: swLng, NeLat: neLat, NeLng: neLng}
+		}
+	}
+
+	// Default: sem filtro nenhum e sem bounds, foca em Balneário Camboriú
+	hasFilter := q.Get("cidade") != "" || q.Get("uf") != "" || q.Get("status_obra") != "" || q.Get("construtora_id") != "" || filter.Bounds != nil
 	if !hasFilter {
 		defaultCidade := "Camboriú"
 		filter.Cidade = &defaultCidade

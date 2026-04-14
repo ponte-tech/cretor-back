@@ -107,11 +107,19 @@ type Pagination struct {
 	PageSize int
 }
 
+type BoundingBox struct {
+	SwLat float64
+	SwLng float64
+	NeLat float64
+	NeLng float64
+}
+
 type EmpreendimentoFilter struct {
 	ConstrutoraID *string
 	Cidade        *string
 	UF            *string
 	StatusObra    *string
 	Search        *string
+	Bounds        *BoundingBox
 	Pagination    Pagination
 }

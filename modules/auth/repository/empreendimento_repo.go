@@ -323,6 +323,10 @@ func (r *EmpreendimentoRepo) List(ctx context.Context, tenantID string, filter d
 	if filter.Search != nil && *filter.Search != "" {
 		f["nome"] = bson.M{"$regex": *filter.Search, "$options": "i"}
 	}
+	if filter.Bounds != nil {
+		f["endereco.latitude"] = bson.M{"$gte": filter.Bounds.SwLat, "$lte": filter.Bounds.NeLat}
+		f["endereco.longitude"] = bson.M{"$gte": filter.Bounds.SwLng, "$lte": filter.Bounds.NeLng}
+	}
 
 	page := filter.Pagination.Page
 	pageSize := filter.Pagination.PageSize
